@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    /* 防止滚动条出现/消失导致的布局偏移 */
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+  }
+  
+  body {
+    @apply font-inter bg-gray-50 min-h-screen;
+  }
+  
+  /* 针对 Webkit 浏览器优化滚动条样式（可选） */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+  }
+}
+
+@layer utilities {
+  .content-auto {
+    content-visibility: auto;
+  }
+  
+  .card-shadow {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+  
+  .tab-active {
+    @apply border-b-2 border-primary text-primary font-medium;
+  }
+  
+  .input-focus {
+    @apply focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none;
+  }
+}

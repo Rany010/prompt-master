@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>提示词优化生成工具</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3B82F6',
+            secondary: '#10B981',
+            neutral: '#64748B',
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .card-shadow {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      }
+      .tab-active {
+        @apply border-b-2 border-primary text-primary font-medium;
+      }
+      .input-focus {
+        @apply focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none;
+      }
+    }
+  </style>
+</head>
+<body class="font-inter bg-gray-50 min-h-screen">
+  <header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa fa-magic text-primary text-2xl"></i>
+        <h1 class="text-xl md:text-2xl font-bold">提示词优化生成工具</h1>
+      </div>
+      <div class="flex items-center space-x-4">
+        <button class="text-neutral hover:text-primary transition-colors">
+          <i class="fa fa-question-circle"></i>
+          <span class="hidden md:inline ml-1">帮助</span>
+        </button>
+        <button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg transition-colors">
+          <i class="fa fa-save mr-1"></i>
+          <span class="hidden md:inline">保存配置</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- 左侧：输入区域（优化版） -->
+      <section class="lg:col-span-1">
+        <div class="bg-white rounded-xl p-5 card-shadow h-full">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-pencil-square-o text-primary mr-2"></i>
+            提示词输入
+          </h2>
+          
+          <!-- 输入方式切换标签 -->
+          <div class="flex border-b border-gray-200 mb-4">
+            <button id="structuredTab" class="tab-active px-4 py-2 text-sm transition-all">
+              结构化输入
+            </button>
+            <button id="rawTextTab" class="px-4 py-2 text-sm text-neutral transition-all">
+              原始提示词
+            </button>
+          </div>
+          
+          <!-- 结构化输入区域 -->
+          <div id="structuredInput" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-neutral mb-1">名称/主题</label>
+              <input type="text" placeholder="输入核心名称或主题" 
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg input-focus transition">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-neutral mb-1">核心卖点</label>
+              <textarea placeholder="描述主要特点和优势，多个卖点用逗号分隔" rows="2"
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg input-focus transition"></textarea>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-neutral mb-1">适用人群</label>
+              <input type="text" placeholder="例如：年轻人、专业人士、学生等" 
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg input-focus transition">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-neutral mb-1">目标场景</label>
+              <input type="text" placeholder="例如：办公室、户外、家庭聚会等" 
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg input-focus transition">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-neutral mb-1">风格要求</label>
+              <select class="w-full px-3 py-2 border border-gray-200 rounded-lg input-focus transition">
+                <option value="">请选择风格</option>
+                <option value="简约">简约风格</option>
+                <option value="专业">专业风格</option>
+                <option value="生动">生动活泼</option>
+                <option value="正式">正式严谨</option>
+                <option value="创意">创意独特</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-neutral mb-1">额外要求</label>
+              <textarea placeholder="其他需要补充的信息" rows="2"
+                class="w-full px-3 py-2 border border-gray-200 rounded-lg input-focus transition"></textarea>
+            </div>
+            
+            <button id="addFieldBtn" class="w-full text-primary hover:text-primary/80 text-sm py-2 border border-dashed border-primary/30 rounded-lg transition-colors flex items-center justify-center">
+              <i class="fa fa-plus mr-1"></i> 添加自定义字段
+            </button>
+          </div>
+          
+          <!-- 原始提示词输入区域 -->
+          <div id="rawTextInput" class="space-y-4 hidden">
+            <div>
+              <label class="block text-sm font-medium text-neutral mb-1">原始提示词内容
+                <span class="text-xs text-neutral/70 ml-1">(支持直接粘贴)</span>
+              </label>
+              <div class="relative">
+                <textarea id="rawTextarea" placeholder="粘贴您的原始提示词内容..." rows="8"
+                  class="w-full px-3 py-2 border border-gray-200 rounded-lg input-focus transition"></textarea>
+                <button id="pasteBtn" class="absolute right-2 top-2 text-neutral hover:text-primary text-sm p-1">
+                  <i class="fa fa-clipboard mr-1"></i> 粘贴
+                </button>
+              </div>
+            </div>
+            
+            <div class="bg-blue-50 p-3 rounded-lg text-sm">
+              <i class="fa fa-info-circle text-primary mr-1"></i>
+              <span>系统将基于您的原始提示词，结合所选模板进行优化生成</span>
+            </div>
+            
+            <button id="parseRawBtn" class="w-full text-primary hover:text-primary/80 text-sm py-2 border border-dashed border-primary/30 rounded-lg transition-colors flex items-center justify-center">
+              <i class="fa fa-magic mr-1"></i> 解析为结构化信息
+            </button>
+          </div>
+        </div>
+      </section>
+      
+      <!-- 中间：模板选择区域 -->
+      <section class="lg:col-span-1">
+        <div class="bg-white rounded-xl p-5 card-shadow h-full">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold flex items-center">
+              <i class="fa fa-th-large text-primary mr-2"></i>
+              模板选择
+            </h2>
+            <button id="createTemplateBtn" class="text-sm text-primary hover:text-primary/80 transition-colors">
+              <i class="fa fa-plus-circle mr-1"></i> 新建模板
+            </button>
+          </div>
+          
+          <p class="text-sm text-neutral mb-4">选择需要应用的模板（可多选）</p>
+          
+          <div class="space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto pr-2">
+            <label class="flex items-center p-3 border border-gray-100 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+              <input type="checkbox" class="w-4 h-4 text-primary rounded focus:ring-primary/50">
+              <span class="ml-3">产品特写 + 细节展示</span>
+            </label>
+            
+            <label class="flex items-center p-3 border border-gray-100 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+              <input type="checkbox" class="w-4 h-4 text-primary rounded focus:ring-primary/50">
+              <span class="ml-3">多角度旋转展示</span>
+            </label>
+            
+            <label class="flex items-center p-3 border border-gray-100 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+              <input type="checkbox" class="w-4 h-4 text-primary rounded focus:ring-primary/50">
+              <span class="ml-3">第一人称开箱体验</span>
+            </label>
+            
+            <label class="flex items-center p-3 border border-gray-100 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+              <input type="checkbox" class="w-4 h-4 text-primary rounded focus:ring-primary/50">
+              <span class="ml-3">户外运动场景展示</span>
+            </label>
+            
+            <label class="flex items-center p-3 border border-gray-100 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+              <input type="checkbox" class="w-4 h-4 text-primary rounded focus:ring-primary/50">
+              <span class="ml-3">使用前后对比</span>
+            </label>
+          </div>
+          
+          <div class="mt-6">
+            <button id="generateBtn" class="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-lg transition-colors font-medium flex items-center justify-center">
+              <i class="fa fa-cog mr-2"></i> 生成提示词
+            </button>
+          </div>
+        </div>
+      </section>
+      
+      <!-- 右侧：生成结果区域 -->
+      <section class="lg:col-span-1">
+        <div class="bg-white rounded-xl p-5 card-shadow h-full">
+          <h2 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fa fa-file-text-o text-primary mr-2"></i>
+            生成结果
+          </h2>
+          
+          <div class="flex justify-between items-center mb-4">
+            <p class="text-sm text-neutral">已选择 <span id="selectedCount" class="font-medium text-primary">0</span> 个模板</p>
+            <button id="clearResultsBtn" class="text-sm text-neutral hover:text-red-500 transition-colors">
+              <i class="fa fa-trash-o mr-1"></i> 清空
+            </button>
+          </div>
+          
+          <div id="resultsContainer" class="space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2">
+            <div class="text-center py-12 text-neutral/70">
+              <i class="fa fa-lightbulb-o text-4xl mb-3 opacity-50"></i>
+              <p>选择模板并点击生成按钮</p>
+              <p class="text-sm mt-1">将在这里展示生成的提示词</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+  
+  <!-- 新建模板模态框 -->
+  <div id="templateModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4 transform transition-all duration-300 scale-95 opacity-0" id="modalContent">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold">创建自定义模板</h3>
+        <button id="closeModalBtn" class="text-neutral hover:text-dark">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-neutral mb-1">模板名称</label>
+          <input type="text" placeholder="例如：节日促销风格" 
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg input-focus transition">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-neutral mb-1">模板格式</label>
+          <p class="text-xs text-neutral/70 mb-1">使用 {{字段名}} 表示结构化输入中的内容</p>
+          <textarea placeholder="例如：展示{{名称}}的{{核心卖点}}，突出适合{{适用人群}}的优势" rows="4"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg input-focus transition"></textarea>
+        </div>
+      </div>
+      
+      <div class="mt-6 flex space-x-3">
+        <button id="cancelTemplateBtn" class="flex-1 py-2 border border-gray-200 rounded-lg text-neutral hover:bg-gray-50 transition-colors">
+          取消
+        </button>
+        <button id="saveTemplateBtn" class="flex-1 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors">
+          保存模板
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 输入方式切换逻辑
+    const structuredTab = document.getElementById('structuredTab');
+    const rawTextTab = document.getElementById('rawTextTab');
+    const structuredInput = document.getElementById('structuredInput');
+    const rawTextInput = document.getElementById('rawTextInput');
+    
+    structuredTab.addEventListener('click', () => {
+      structuredTab.classList.add('tab-active');
+      rawTextTab.classList.remove('tab-active');
+      structuredInput.classList.remove('hidden');
+      rawTextInput.classList.add('hidden');
+    });
+    
+    rawTextTab.addEventListener('click', () => {
+      rawTextTab.classList.add('tab-active');
+      structuredTab.classList.remove('tab-active');
+      rawTextInput.classList.remove('hidden');
+      structuredInput.classList.add('hidden');
+    });
+    
+    // 原始提示词粘贴功能
+    document.getElementById('pasteBtn').addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        document.getElementById('rawTextarea').value = text;
+      } catch (err) {
+        console.error('粘贴失败:', err);
+        alert('粘贴失败，请使用Ctrl+V或右键粘贴');
+      }
+    });
+    
+    // 解析原始提示词为结构化信息
+    document.getElementById('parseRawBtn').addEventListener('click', () => {
+      const rawText = document.getElementById('rawTextarea').value;
+      if (!rawText.trim()) {
+        alert('请先输入或粘贴原始提示词内容');
+        return;
+      }
+      
+      structuredTab.click();
+      alert('已尝试解析原始提示词到结构化字段中！');
+    });
+    
+    // 模板选择计数
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    checkboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', () => {
+        selectedCount.textContent = document.querySelectorAll('input[type="checkbox"]:checked').length;
+      });
+    });
+    
+    // 生成提示词
+    document.getElementById('generateBtn').addEventListener('click', () => {
+      const checkedTemplates = Array.from(checkboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.nextElementSibling.textContent);
+      
+      if (checkedTemplates.length === 0) {
+        alert('请至少选择一个模板');
+        return;
+      }
+      
+      const isStructured = !structuredInput.classList.contains('hidden');
+      let sourceContent = isStructured 
+        ? structuredInput.querySelector('input[placeholder="输入核心名称或主题"]').value || '结构化信息'
+        : document.getElementById('rawTextarea').value.substring(0, 30) + '...';
+      
+      const resultsContainer = document.getElementById('resultsContainer');
+      resultsContainer.innerHTML = '';
+      
+      checkedTemplates.forEach((template, i) => {
+        const resultCard = document.createElement('div');
+        resultCard.className = 'p-4 border border-gray-100 rounded-lg bg-gray-50';
+        
+        const text = isStructured 
+          ? `根据"${template}"模板生成：突出${sourceContent}的核心卖点，针对适用人群设计场景化描述，符合所选风格要求。`
+          : `根据"${template}"模板优化：基于"${sourceContent}"扩展细节，增强场景感和表现力，符合模板风格特点。`;
+        
+        resultCard.innerHTML = `
+          <div class="flex justify-between items-start mb-2">
+            <h4 class="font-medium text-sm">${template}</h4>
+            <span class="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">模板 ${i+1}</span>
+          </div>
+          <p class="text-sm text-gray-700 mb-3">${text}</p>
+          <button class="text-xs text-primary hover:text-primary/80 transition-colors flex items-center copy-btn">
+            <i class="fa fa-copy mr-1"></i> 复制
+          </button>
+        `;
+        
+        resultsContainer.appendChild(resultCard);
+      });
+      
+      // 复制功能
+      document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const text = this.parentElement.querySelector('p').textContent;
+          navigator.clipboard.writeText(text).then(() => {
+            const original = this.innerHTML;
+            this.innerHTML = '<i class="fa fa-check mr-1"></i> 已复制';
+            setTimeout(() => this.innerHTML = original, 2000);
+          });
+        });
+      });
+    });
+    
+    // 清空结果
+    document.getElementById('clearResultsBtn').addEventListener('click', () => {
+      document.getElementById('resultsContainer').innerHTML = `
+        <div class="text-center py-12 text-neutral/70">
+          <i class="fa fa-lightbulb-o text-4xl mb-3 opacity-50"></i>
+          <p>选择模板并点击生成按钮</p>
+          <p class="text-sm mt-1">将在这里展示生成的提示词</p>
+        </div>
+      `;
+      
+      checkboxes.forEach(cb => cb.checked = false);
+      selectedCount.textContent = '0';
+    });
+    
+    // 模态框控制
+    const templateModal = document.getElementById('templateModal');
+    const modalContent = document.getElementById('modalContent');
+    
+    document.getElementById('createTemplateBtn').addEventListener('click', () => {
+      templateModal.classList.remove('hidden');
+      setTimeout(() => {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+      }, 50);
+    });
+    
+    const closeModal = () => {
+      modalContent.classList.remove('scale-100', 'opacity-100');
+      modalContent.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => templateModal.classList.add('hidden'), 300);
+    };
+    
+    document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+    document.getElementById('cancelTemplateBtn').addEventListener('click', closeModal);
+    templateModal.addEventListener('click', e => e.target === templateModal && closeModal());
+    
+    document.getElementById('saveTemplateBtn').addEventListener('click', () => {
+      alert('模板保存成功！');
+      closeModal();
+    });
+    
+    // 添加自定义字段
+    document.getElementById('addFieldBtn').addEventListener('click', () => {
+      const fieldContainer = document.createElement('div');
+      fieldContainer.className = 'flex space-x-2';
+      
+      fieldContainer.innerHTML = `
+        <input type="text" placeholder="字段名称" class="flex-1 px-3 py-2 border border-gray-200 rounded-lg input-focus transition">
+        <input type="text" placeholder="字段内容" class="flex-2 px-3 py-2 border border-gray-200 rounded-lg input-focus transition">
+        <button class="removeFieldBtn text-neutral hover:text-red-500 p-2">
+          <i class="fa fa-times"></i>
+        </button>
+      `;
+      
+      document.getElementById('addFieldBtn').before(fieldContainer);
+      fieldContainer.querySelector('.removeFieldBtn').addEventListener('click', () => fieldContainer.remove());
+    });
+  </script>
+</body>
+</html>

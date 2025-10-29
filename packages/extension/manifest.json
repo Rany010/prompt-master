@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Prompt Master",
+  "version": "0.0.1",
+  "description": "A Chrome extension for prompt management",
+  "permissions": ["storage"],
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icons/icon.svg",
+      "48": "icons/icon.svg",
+      "128": "icons/icon.svg"
+    }
+  },
+  "icons": {
+    "16": "icons/icon.svg",
+    "48": "icons/icon.svg",
+    "128": "icons/icon.svg"
+  }
+}
