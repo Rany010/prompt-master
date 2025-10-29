@@ -4,8 +4,9 @@
     <header class="bg-white shadow-sm sticky top-0 z-50">
       <div class="container mx-auto px-4 py-4 flex justify-between items-center">
         <div class="flex items-center space-x-2">
-          <i class="fa fa-magic text-primary text-2xl"></i>
-          <h1 class="text-xl md:text-2xl font-bold">提示词优化生成工具</h1>
+          <i class="fa fa-video-camera text-primary text-2xl"></i>
+          <h1 class="text-xl md:text-2xl font-bold">Sora 2 视频提示词生成器</h1>
+          <span class="hidden md:inline text-sm text-gray-500 ml-2">for 跨境电商</span>
         </div>
         <div class="flex items-center space-x-4">
           <button 
@@ -37,7 +38,7 @@
           <div class="bg-white rounded-xl p-5 card-shadow h-full">
             <h2 class="text-lg font-semibold mb-4 flex items-center">
               <i class="fa fa-pencil-square-o text-primary mr-2"></i>
-              提示词输入
+              产品信息输入
             </h2>
             
             <!-- 输入方式切换标签 -->
@@ -183,7 +184,7 @@
               
               <div class="bg-blue-50 p-3 rounded-lg text-sm">
                 <i class="fa fa-info-circle text-primary mr-1"></i>
-                <span>系统将基于您的原始提示词，结合所选模板进行优化生成</span>
+                <span>AI 将基于您的描述，生成适合 Sora 2 的专业英文视频提示词</span>
               </div>
               
               <button 
@@ -202,8 +203,8 @@
           <div class="bg-white rounded-xl p-5 card-shadow h-full">
             <div class="flex justify-between items-center mb-4">
               <h2 class="text-lg font-semibold flex items-center">
-                <i class="fa fa-th-large text-primary mr-2"></i>
-                模板选择
+                <i class="fa fa-film text-primary mr-2"></i>
+                视频场景模板
               </h2>
               <button 
                 type="button"
@@ -214,7 +215,7 @@
               </button>
             </div>
             
-            <p class="text-sm text-neutral mb-4">选择需要应用的模板（可多选）</p>
+            <p class="text-sm text-neutral mb-4">选择视频风格模板（可多选），AI 将生成适合 Sora 2 的英文提示词</p>
             
             <div class="space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto pr-2">
               <label 
@@ -234,10 +235,13 @@
             <div class="mt-6">
               <button 
                 type="button"
-                class="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-lg transition-colors font-medium flex items-center justify-center"
+                class="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-lg transition-colors font-medium flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
                 @click="generatePrompts"
+                :disabled="generating"
               >
-                <i class="fa fa-cog mr-2"></i> 生成提示词
+                <i v-if="!generating" class="fa fa-cog mr-2"></i>
+                <i v-else class="fa fa-spinner fa-spin mr-2"></i>
+                <span>{{ generating ? '生成中...' : '生成提示词' }}</span>
               </button>
             </div>
           </div>
@@ -247,8 +251,8 @@
         <section class="lg:col-span-1">
           <div class="bg-white rounded-xl p-5 card-shadow h-full">
             <h2 class="text-lg font-semibold mb-4 flex items-center">
-              <i class="fa fa-file-text-o text-primary mr-2"></i>
-              生成结果
+              <i class="fa fa-code text-primary mr-2"></i>
+              Sora 2 提示词
             </h2>
             
             <div class="flex justify-between items-center mb-4">
@@ -266,9 +270,9 @@
             
             <div class="space-y-4 max-h-[calc(100vh-260px)] overflow-y-auto pr-2">
               <div v-if="results.length === 0" class="text-center py-12 text-neutral/70">
-                <i class="fa fa-lightbulb-o text-4xl mb-3 opacity-50"></i>
-                <p>选择模板并点击生成按钮</p>
-                <p class="text-sm mt-1">将在这里展示生成的提示词</p>
+                <i class="fa fa-video-camera text-4xl mb-3 opacity-50"></i>
+                <p>选择视频场景模板并点击生成</p>
+                <p class="text-sm mt-1">AI 将生成适合 Sora 2 的英文提示词</p>
               </div>
               
               <div 
@@ -466,6 +470,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import type { StructuredInput, Template, GeneratedResult, InputMode, AIConfig } from '../types'
+import { optimizePromptWithGemini, GeminiError } from '../services/gemini'
 
 const message = useMessage()
 
@@ -486,17 +491,20 @@ const structuredInput = ref<StructuredInput>({
 // 原始提示词文本
 const rawText = ref('')
 
-// 模板列表
+// 模板列表 - 面向 Sora 2 视频生成的电商场景
 const templates = ref<Template[]>([
-  { id: '1', name: '产品特写 + 细节展示', format: '展示{{名称}}的细节特写，突出{{核心卖点}}，适合{{适用人群}}使用', selected: false },
-  { id: '2', name: '多角度旋转展示', format: '从多个角度展示{{名称}}，全方位呈现{{核心卖点}}', selected: false },
-  { id: '3', name: '第一人称开箱体验', format: '以第一人称视角展示{{名称}}的开箱体验，强调{{核心卖点}}带来的惊喜感', selected: false },
-  { id: '4', name: '户外运动场景展示', format: '在{{目标场景}}中展示{{名称}}，突出{{核心卖点}}在实际使用中的优势', selected: false },
-  { id: '5', name: '使用前后对比', format: '通过使用前后对比展示{{名称}}的{{核心卖点}}，让{{适用人群}}一目了然', selected: false }
+  { id: '1', name: '产品特写 + 细节展示', format: 'Close-up product showcase with cinematic lighting, highlighting {{名称}} and its {{核心卖点}}, targeting {{适用人群}}. Smooth camera movement with shallow depth of field.', selected: false },
+  { id: '2', name: '360度旋转展示', format: '360-degree rotating view of {{名称}}, revealing {{核心卖点}} from all angles. Studio lighting with clean white background. Camera orbits smoothly around the product.', selected: false },
+  { id: '3', name: '开箱体验视角', format: 'First-person unboxing experience of {{名称}}, capturing the excitement and surprise of discovering {{核心卖点}}. Warm lighting, hands-on interaction, authentic lifestyle setting.', selected: false },
+  { id: '4', name: '使用场景展示', format: '{{名称}} in action within {{目标场景}}, demonstrating {{核心卖点}} in real-world use. Dynamic camera tracking, natural lighting, showing benefits for {{适用人群}}.', selected: false },
+  { id: '5', name: '前后对比展示', format: 'Before-and-after comparison showcasing {{名称}} transformative {{核心卖点}}. Split-screen or transition effect. Clear visual demonstration for {{适用人群}}.', selected: false },
+  { id: '6', name: '生活方式融入', format: 'Lifestyle integration of {{名称}} in daily routine. Showing {{核心卖点}} naturally used by {{适用人群}} in {{目标场景}}. Cinematic color grading, aspirational aesthetic.', selected: false },
+  { id: '7', name: '科技感展示', format: 'High-tech presentation of {{名称}} with futuristic aesthetics. Highlighting {{核心卖点}} through sleek animations, holographic effects, modern studio environment.', selected: false }
 ])
 
 // 生成结果
 const results = ref<GeneratedResult[]>([])
+const generating = ref(false)
 
 // 已选择的模板数量
 const selectedTemplatesCount = computed(() => {
@@ -524,6 +532,29 @@ const aiConfig = ref<AIConfig>({
 
 // 复制状态
 const copiedId = ref('')
+
+const buildFallbackContent = (template: Template): string => {
+  if (inputMode.value === 'structured') {
+    let content = template.format
+      .replace(/\{\{名称\}\}/g, structuredInput.value.name || '产品')
+      .replace(/\{\{核心卖点\}\}/g, structuredInput.value.features || '核心特点')
+      .replace(/\{\{适用人群\}\}/g, structuredInput.value.audience || '用户')
+      .replace(/\{\{目标场景\}\}/g, structuredInput.value.scene || '使用场景')
+
+    if (structuredInput.value.style) {
+      content += `，采用${structuredInput.value.style}风格`
+    }
+    if (structuredInput.value.extra) {
+      content += `。${structuredInput.value.extra}`
+    }
+
+    return content
+  }
+
+  const preview = rawText.value.substring(0, 30)
+  const rawPreview = preview + (rawText.value.length > 30 ? '...' : '')
+  return `根据"${template.name}"模板优化：基于"${rawPreview}"扩展细节，增强场景感和表现力，符合模板风格特点。原始内容：${rawText.value}`
+}
 
 // 添加自定义字段
 const addCustomField = () => {
@@ -561,7 +592,7 @@ const parseRawText = () => {
 }
 
 // 生成提示词
-const generatePrompts = () => {
+const generatePrompts = async () => {
   const selectedTemplates = templates.value.filter(t => t.selected)
   
   if (selectedTemplates.length === 0) {
@@ -583,40 +614,49 @@ const generatePrompts = () => {
   }
   
   results.value = []
+  generating.value = true
   
-  selectedTemplates.forEach((template, index) => {
-    let content = ''
-    
-    if (isStructured) {
-      // 结构化输入：使用模板格式替换变量
-      content = template.format
-        .replace(/\{\{名称\}\}/g, structuredInput.value.name || '产品')
-        .replace(/\{\{核心卖点\}\}/g, structuredInput.value.features || '核心特点')
-        .replace(/\{\{适用人群\}\}/g, structuredInput.value.audience || '用户')
-        .replace(/\{\{目标场景\}\}/g, structuredInput.value.scene || '使用场景')
+  try {
+    for (let index = 0; index < selectedTemplates.length; index++) {
+      const template = selectedTemplates[index]
+      let content = ''
       
-      // 添加风格和额外要求
-      if (structuredInput.value.style) {
-        content += `，采用${structuredInput.value.style}风格`
+      try {
+        // 使用 Gemini 优化提示词
+        content = await optimizePromptWithGemini({
+          template,
+          inputMode: inputMode.value,
+          structuredInput: structuredInput.value,
+          rawText: rawText.value
+        })
+      } catch (error) {
+        // Gemini 失败时使用降级逻辑
+        console.warn(`Gemini 生成失败 (模板 ${template.name}):`, error)
+        
+        if (error instanceof GeminiError) {
+          message.warning(`模板"${template.name}"使用 AI 生成失败，使用基础模板: ${error.message}`)
+        } else {
+          message.warning(`模板"${template.name}"使用 AI 生成失败，使用基础模板`)
+        }
+        
+        content = buildFallbackContent(template)
       }
-      if (structuredInput.value.extra) {
-        content += `。${structuredInput.value.extra}`
-      }
-    } else {
-      // 原始提示词：基于模板优化
-      const rawPreview = rawText.value.substring(0, 30) + (rawText.value.length > 30 ? '...' : '')
-      content = `根据"${template.name}"模板优化：基于"${rawPreview}"扩展细节，增强场景感和表现力，符合模板风格特点。原始内容：${rawText.value}`
+      
+      results.value.push({
+        id: `result-${Date.now()}-${index}`,
+        templateName: template.name,
+        content,
+        templateIndex: index + 1
+      })
     }
     
-    results.value.push({
-      id: `result-${Date.now()}-${index}`,
-      templateName: template.name,
-      content,
-      templateIndex: index + 1
-    })
-  })
-  
-  message.success(`成功生成 ${results.value.length} 个提示词`)
+    message.success(`成功生成 ${results.value.length} 个提示词`)
+  } catch (error) {
+    console.error('生成提示词时发生错误:', error)
+    message.error('生成提示词失败，请稍后重试')
+  } finally {
+    generating.value = false
+  }
 }
 
 // 清空结果
@@ -752,7 +792,7 @@ const saveAIConfig = () => {
 
 // 显示帮助
 const showHelp = () => {
-  message.info('欢迎使用提示词优化生成工具！选择输入方式，填写信息，选择模板，即可生成优化的提示词。')
+  message.info('欢迎使用 Sora 2 视频提示词生成器！填写产品信息，选择视频场景模板，AI 将自动生成适合 Sora 2 的专业英文提示词。')
 }
 
 // 监听模态框显示状态，添加动画
