@@ -4,6 +4,7 @@ export interface StructuredInput {
   features: string      // 核心卖点
   audience: string      // 适用人群
   scene: string         // 目标场景
+  style?: string        // 风格要求
   extra: string         // 额外要求
   customFields: CustomField[]  // 自定义字段
 }

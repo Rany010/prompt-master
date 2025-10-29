@@ -357,7 +357,7 @@
           <!-- 简单模式 -->
           <div v-if="templateMode === 'simple'">
             <label class="block text-sm font-medium text-neutral mb-1">模板格式 *</label>
-            <p class="text-xs text-neutral/70 mb-1">使用 {{名称}}、{{核心卖点}}、{{适用人群}}、{{目标场景}} 表示用户输入的内容</p>
+            <p class="text-xs text-neutral/70 mb-1" v-pre>使用 {{名称}}、{{核心卖点}}、{{适用人群}}、{{目标场景}} 表示用户输入的内容</p>
             <textarea 
               v-model="newTemplate.format"
               placeholder="例如：Close-up cinematic shot of {{名称}}, highlighting {{核心卖点}}, perfect for {{适用人群}} in {{目标场景}}." 
@@ -600,6 +600,7 @@
         <!-- 可滚动的内容区域 -->
         <div class="flex-1 overflow-y-auto px-6 py-4">
           <div class="space-y-4">
+          <template v-if="editingTemplate">
           <!-- 模板名称 -->
           <div>
             <label class="block text-sm font-medium text-neutral mb-1">模板名称 *</label>
@@ -614,7 +615,7 @@
           <!-- 简单模式 -->
           <div v-if="!editingTemplate.structured">
             <label class="block text-sm font-medium text-neutral mb-1">模板格式 *</label>
-            <p class="text-xs text-neutral/70 mb-1">使用 {{名称}}、{{核心卖点}}、{{适用人群}}、{{目标场景}} 表示用户输入的内容</p>
+            <p class="text-xs text-neutral/70 mb-1" v-pre>使用 {{名称}}、{{核心卖点}}、{{适用人群}}、{{目标场景}} 表示用户输入的内容</p>
             <textarea 
               v-model="editingTemplate.format"
               placeholder="例如：Close-up cinematic shot of {{名称}}, highlighting {{核心卖点}}, perfect for {{适用人群}} in {{目标场景}}." 
@@ -793,6 +794,7 @@
               </div>
             </div>
           </div>
+          </template>
           </div>
         </div>
         
