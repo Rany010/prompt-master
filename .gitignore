@@ -1,34 +1,36 @@
 # Dependencies
-node_modules
-.pnpm-store
+node_modules/
+.pnpm-store/
 
-# Build outputs
-dist
-.nuxt
-.output
-.vite
+# Build output
+dist/
+build/
 
-# Environment
+# Environment variables
 .env
-.env.*
-!.env.example
+.env.local
+.env.*.local
 
-# Editor
-.vscode/*
-!.vscode/extensions.json
-.idea
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
 
-# Cache
-.cache
-.turbo
+# Testing
+coverage/
 
+# Temporary files
+*.tmp
+.temp/

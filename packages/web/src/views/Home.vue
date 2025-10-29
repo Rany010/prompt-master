@@ -332,7 +332,7 @@
           
           <div>
             <label class="block text-sm font-medium text-neutral mb-1">模板格式</label>
-            <p class="text-xs text-neutral/70 mb-1">使用 {{字段名}} 表示结构化输入中的内容</p>
+            <p class="text-xs text-neutral/70 mb-1" v-text="'使用 {{字段名}} 表示结构化输入中的内容'"></p>
             <textarea 
               v-model="newTemplate.format"
               placeholder="例如：展示{{名称}}的{{核心卖点}}，突出适合{{适用人群}}的优势" 
@@ -709,7 +709,7 @@ const testAIConnection = async () => {
     })
     
     if (response.ok) {
-      const data = await response.json()
+      await response.json()
       message.success('✓ 连接成功！AI配置正常')
     } else {
       const errorData = await response.json().catch(() => ({}))
@@ -785,7 +785,6 @@ onMounted(() => {
       }
       if (config.templates) {
         // 合并保存的模板和默认模板
-        const savedTemplateIds = config.templates.map((t: Template) => t.id)
         config.templates.forEach((savedTemplate: Template) => {
           const existingIndex = templates.value.findIndex(t => t.id === savedTemplate.id)
           if (existingIndex !== -1) {
