@@ -23,6 +23,7 @@ export interface Template {
   selected?: boolean
   // 结构化的专业视频生成维度（可选，如果存在则优先使用）
   structured?: TemplateStructure
+  isDefault?: boolean  // 标记是否为默认模板
 }
 
 // 模板的结构化定义

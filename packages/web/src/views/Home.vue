@@ -6,7 +6,7 @@
         <div class="flex items-center space-x-2">
           <i class="fa fa-video-camera text-primary text-2xl"></i>
           <h1 class="text-xl md:text-2xl font-bold">Sora 2 视频提示词生成器</h1>
-          <span class="hidden md:inline text-sm text-gray-500 ml-2">for 跨境电商</span>
+          <span class="hidden md:inline text-sm text-gray-500 ml-2">内部试用版</span>
         </div>
         <div class="flex items-center space-x-4">
           <button 
@@ -17,6 +17,31 @@
             <i class="fa fa-question-circle"></i>
             <span class="hidden md:inline ml-1">帮助</span>
           </button>
+          <button 
+            type="button"
+            class="text-neutral hover:text-primary transition-colors"
+            @click="exportData"
+            title="导出模板数据"
+          >
+            <i class="fa fa-download"></i>
+            <span class="hidden md:inline ml-1">导出</span>
+          </button>
+          <button 
+            type="button"
+            class="text-neutral hover:text-primary transition-colors"
+            @click="triggerImport"
+            title="导入模板数据"
+          >
+            <i class="fa fa-upload"></i>
+            <span class="hidden md:inline ml-1">导入</span>
+          </button>
+          <input 
+            ref="importFileInput"
+            type="file" 
+            accept=".json"
+            style="display: none"
+            @change="handleImport"
+          />
           <button 
             type="button"
             class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg transition-colors"
@@ -215,6 +240,9 @@
                     class="w-4 h-4 text-primary rounded focus:ring-primary/50"
                   />
                   <span class="ml-3">{{ template.name }}</span>
+                  <span v-if="template.isDefault" class="ml-2 text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
+                    默认
+                  </span>
                 </label>
                 <button
                   type="button"
@@ -224,6 +252,15 @@
                 >
                   <i class="fa fa-eye mr-1"></i>
                   查看
+                </button>
+                <button
+                  v-if="!template.isDefault"
+                  type="button"
+                  class="ml-2 text-neutral hover:text-red-500 text-sm transition-colors"
+                  @click="deleteTemplate(template)"
+                  title="删除模板"
+                >
+                  <i class="fa fa-trash-o"></i>
                 </button>
               </div>
             </div>
@@ -926,6 +963,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import type { StructuredInput, Template, GeneratedResult, InputMode, AIConfig } from '../types'
 import { optimizePromptWithGemini, GeminiError } from '../services/gemini'
+import { saveTemplates, loadTemplates, exportAllData, importData } from '../services/storage'
 
 const message = useMessage()
 
@@ -952,6 +990,7 @@ const templates = ref<Template[]>([
     name: '📦 第一人称开箱体验', 
     format: '', 
     selected: false,
+    isDefault: true,  // 标记为默认模板
     structured: {
       plotAction: {
         sequence: 'Opening package → Revealing product → First touch → Exploring features → Expressing delight',
@@ -1041,6 +1080,9 @@ const aiConfig = ref<AIConfig>({
 
 // 复制状态
 const copiedId = ref('')
+
+// 导入文件输入引用
+const importFileInput = ref<HTMLInputElement | null>(null)
 
 // 根据结构化模板构建专业提示词
 const buildStructuredPrompt = (template: Template): string => {
@@ -1344,6 +1386,9 @@ const saveNewTemplate = () => {
   
   templates.value.push(newTemplateData)
   
+  // 持久化保存模板
+  saveTemplates(templates.value)
+  
   message.success('模板保存成功！')
   closeTemplateModal()
 }
@@ -1410,6 +1455,10 @@ const saveEditedTemplate = () => {
   const index = templates.value.findIndex(t => t.id === editingTemplate.value!.id)
   if (index !== -1) {
     templates.value[index] = { ...editingTemplate.value }
+    
+    // 持久化保存模板
+    saveTemplates(templates.value)
+    
     message.success('模板更新成功！')
     closeEditTemplateModal()
   } else {
@@ -1505,6 +1554,63 @@ const showHelp = () => {
   message.info('欢迎使用 Sora 2 视频提示词生成器！填写产品信息，选择视频场景模板，AI 将自动生成适合 Sora 2 的专业英文提示词。')
 }
 
+// 导出数据
+const exportData = () => {
+  try {
+    const jsonData = exportAllData()
+    const blob = new Blob([jsonData], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `prompt-master-backup-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    message.success('数据导出成功！')
+  } catch (error) {
+    console.error('导出失败:', error)
+    message.error('导出数据失败')
+  }
+}
+
+// 触发导入文件选择
+const triggerImport = () => {
+  importFileInput.value?.click()
+}
+
+// 处理导入
+const handleImport = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  
+  if (!file) return
+  
+  try {
+    const text = await file.text()
+    const success = importData(text)
+    
+    if (success) {
+      // 重新加载模板
+      const userTemplates = loadTemplates()
+      // 清空当前非默认模板
+      templates.value = templates.value.filter(t => t.isDefault)
+      // 添加导入的模板
+      templates.value.push(...userTemplates)
+      
+      message.success('数据导入成功！')
+    } else {
+      message.error('导入数据格式错误')
+    }
+  } catch (error) {
+    console.error('导入失败:', error)
+    message.error('导入数据失败')
+  } finally {
+    // 清空文件输入
+    input.value = ''
+  }
+}
+
 // 监听模态框显示状态，添加动画
 watch(showTemplateModal, (newVal) => {
   if (newVal) {
@@ -1532,33 +1638,38 @@ watch(showAIConfigModal, (newVal) => {
   }
 })
 
+// 删除模板
+const deleteTemplate = (template: Template) => {
+  if (template.isDefault) {
+    message.warning('默认模板不能删除')
+    return
+  }
+  
+  if (!confirm(`确定要删除模板"${template.name}"吗？`)) {
+    return
+  }
+  
+  const index = templates.value.findIndex(t => t.id === template.id)
+  if (index !== -1) {
+    templates.value.splice(index, 1)
+    // 持久化保存
+    saveTemplates(templates.value)
+    message.success('模板已删除')
+  }
+}
+
 // 加载配置
 onMounted(() => {
-  // 加载应用配置
-  const savedConfig = localStorage.getItem('promptMasterConfig')
-  if (savedConfig) {
-    try {
-      const config = JSON.parse(savedConfig)
-      if (config.structuredInput) {
-        structuredInput.value = config.structuredInput
-      }
-      if (config.templates) {
-        // 合并保存的模板和默认模板
-        config.templates.forEach((savedTemplate: Template) => {
-          const existingIndex = templates.value.findIndex(t => t.id === savedTemplate.id)
-          if (existingIndex !== -1) {
-            templates.value[existingIndex] = savedTemplate
-          } else {
-            templates.value.push(savedTemplate)
-          }
-        })
-      }
-      if (config.inputMode) {
-        inputMode.value = config.inputMode
-      }
-    } catch (err) {
-      console.error('加载配置失败:', err)
+  // 加载用户创建的模板
+  try {
+    const userTemplates = loadTemplates()
+    if (userTemplates.length > 0) {
+      // 将用户模板添加到默认模板后面
+      templates.value.push(...userTemplates)
+      message.success(`已加载 ${userTemplates.length} 个自定义模板`)
     }
+  } catch (err) {
+    console.error('加载用户模板失败:', err)
   }
   
   // 加载AI配置
@@ -1567,7 +1678,6 @@ onMounted(() => {
     try {
       const config = JSON.parse(savedAIConfig)
       aiConfig.value = config
-      message.success('已加载AI配置')
     } catch (err) {
       console.error('加载AI配置失败:', err)
     }
