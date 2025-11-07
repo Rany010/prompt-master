@@ -1,6 +1,6 @@
 import type { InputMode, StructuredInput, Template } from '../types'
 
-const GEMINI_API_KEY = 'AIzaSyDxim_2tjiL4f02Yf56yWiIYi3pl3I4iqM'
+const GEMINI_API_KEY = 'AIzaSyA35fEYZb1ki2Fo45s9A4nQ-FdFScIxIbY'
 const GEMINI_MODEL = 'gemini-2.0-flash-exp'
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 
