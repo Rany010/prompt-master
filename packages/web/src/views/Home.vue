@@ -963,7 +963,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import type { StructuredInput, Template, GeneratedResult, InputMode, AIConfig } from '../types'
 import { optimizePromptWithGemini, GeminiError } from '../services/gemini'
-import { saveTemplates, loadTemplates, exportAllData, importData } from '../services/storage'
+import { saveTemplates, loadTemplates, exportAllData, importData, saveAIConfig as saveAIConfigToStorage, loadAIConfig as loadAIConfigFromStorage, type ImportResult } from '../services/storage'
 
 const message = useMessage()
 
@@ -1543,10 +1543,15 @@ const saveAIConfig = () => {
     return
   }
   
-  // 保存到本地存储
-  localStorage.setItem('aiConfig', JSON.stringify(aiConfig.value))
-  message.success('AI配置保存成功！')
-  closeAIConfigModal()
+  try {
+    // 使用统一的存储函数保存AI配置
+    saveAIConfigToStorage(aiConfig.value)
+    message.success('AI配置保存成功！')
+    closeAIConfigModal()
+  } catch (error) {
+    console.error('保存AI配置失败:', error)
+    message.error('保存AI配置失败')
+  }
 }
 
 // 显示帮助
@@ -1588,23 +1593,81 @@ const handleImport = async (event: Event) => {
   
   try {
     const text = await file.text()
-    const success = importData(text)
     
-    if (success) {
+    // 解析数据预览
+    let previewData: any
+    try {
+      previewData = JSON.parse(text)
+    } catch {
+      message.error('文件格式错误，请选择有效的 JSON 备份文件')
+      input.value = ''
+      return
+    }
+    
+    // 显示导入预览和选项
+    const templateCount = previewData.templates?.length || 0
+    const hasAIConfig = !!previewData.aiConfig
+    const hasAppConfig = !!previewData.appConfig
+    
+    const previewParts = []
+    if (templateCount > 0) previewParts.push(`${templateCount} 个模板`)
+    if (hasAIConfig) previewParts.push('AI配置')
+    if (hasAppConfig) previewParts.push('应用配置')
+    
+    const previewText = previewParts.length > 0 
+      ? `将导入：${previewParts.join('、')}` 
+      : '文件中没有可导入的数据'
+    
+    // 确认导入操作
+    const confirmMessage = `${previewText}\n\n模板将以追加方式导入，配置将覆盖现有配置。\n是否继续？`
+    if (!confirm(confirmMessage)) {
+      input.value = ''
+      return
+    }
+    
+    // 执行导入（合并模式）
+    const result: ImportResult = importData(text, true)
+    
+    if (result.success) {
       // 重新加载模板
       const userTemplates = loadTemplates()
       // 清空当前非默认模板
       templates.value = templates.value.filter(t => t.isDefault)
-      // 添加导入的模板
+      // 添加所有用户模板（包括新导入的）
       templates.value.push(...userTemplates)
       
-      message.success('数据导入成功！')
+      // 重新加载AI配置
+      const importedAIConfig = loadAIConfigFromStorage()
+      if (importedAIConfig) {
+        aiConfig.value = importedAIConfig
+      }
+      
+      // 生成详细的导入反馈
+      const details: string[] = []
+      if (result.imported.templates > 0) {
+        details.push(`${result.imported.templates} 个新模板`)
+      }
+      if (result.imported.templatesSkipped > 0) {
+        details.push(`${result.imported.templatesSkipped} 个重复模板已跳过`)
+      }
+      if (result.imported.aiConfig) {
+        details.push('AI配置已更新')
+      }
+      if (result.imported.appConfig) {
+        details.push('应用配置已更新')
+      }
+      
+      const summary = details.length > 0 
+        ? `导入成功：${details.join('、')}` 
+        : '数据导入成功（无新数据）'
+      
+      message.success(summary, { duration: 5000 })
     } else {
-      message.error('导入数据格式错误')
+      message.error(`导入失败：${result.error || '数据格式错误'}`)
     }
   } catch (error) {
     console.error('导入失败:', error)
-    message.error('导入数据失败')
+    message.error('导入数据失败，请检查文件格式')
   } finally {
     // 清空文件输入
     input.value = ''
@@ -1672,15 +1735,14 @@ onMounted(() => {
     console.error('加载用户模板失败:', err)
   }
   
-  // 加载AI配置
-  const savedAIConfig = localStorage.getItem('aiConfig')
-  if (savedAIConfig) {
-    try {
-      const config = JSON.parse(savedAIConfig)
-      aiConfig.value = config
-    } catch (err) {
-      console.error('加载AI配置失败:', err)
+  // 加载AI配置（使用统一的存储函数）
+  try {
+    const savedAIConfig = loadAIConfigFromStorage()
+    if (savedAIConfig) {
+      aiConfig.value = savedAIConfig
     }
+  } catch (err) {
+    console.error('加载AI配置失败:', err)
   }
 })
 </script>
