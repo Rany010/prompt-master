@@ -1510,58 +1510,6 @@ const closeAIConfigModal = () => {
   }, 300)
 }
 
-// 测试AI连接
-const testAIConnection = async () => {
-  // 验证配置
-  if (!aiConfig.value.url.trim()) {
-    message.warning('请先填写API URL')
-    return
-  }
-  
-  if (!aiConfig.value.apiKey.trim()) {
-    message.warning('请先填写API Key')
-    return
-  }
-  
-  testingConnection.value = true
-  
-  try {
-    // 发送测试请求
-    const response = await fetch(aiConfig.value.url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${aiConfig.value.apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          { role: 'user', content: 'Hello' }
-        ],
-        max_tokens: 5
-      })
-    })
-    
-    if (response.ok) {
-      await response.json()
-      message.success('✓ 连接成功！AI配置正常')
-    } else {
-      const errorData = await response.json().catch(() => ({}))
-      const errorMsg = errorData.error?.message || `连接失败 (${response.status})`
-      message.error(`✗ ${errorMsg}`)
-    }
-  } catch (error: any) {
-    if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-      message.error('✗ 网络错误：无法连接到API服务器，请检查URL是否正确')
-    } else {
-      message.error(`✗ 连接失败：${error.message}`)
-    }
-  } finally {
-    testingConnection.value = false
-  }
-}
-
-// 保存AI配置
 // 加载可用模型列表
 const loadingModels = ref(false)
 const loadModels = async () => {
