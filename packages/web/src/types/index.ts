@@ -68,9 +68,11 @@ export interface GeneratedResult {
 
 // AI配置类型
 export interface AIConfig {
-  name: string
-  url: string
-  apiKey: string
+  name: string          // AI 服务名称（如 "Gemini 2.5"）
+  url: string           // API Base URL
+  apiKey: string        // API Key
+  model: string         // 当前选择的模型
+  availableModels?: string[]  // 可用的模型列表（可选）
 }
 
 // 输入模式类型

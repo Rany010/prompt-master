@@ -907,6 +907,7 @@
                 :type="showApiKey ? 'text' : 'password'" 
                 placeholder="输入您的API密钥" 
                 class="w-full px-3 py-2 pr-10 border border-gray-200 rounded-lg input-focus transition"
+                @change="loadModels"
               />
               <button 
                 type="button"
@@ -916,6 +917,38 @@
                 <i :class="showApiKey ? 'fa fa-eye-slash' : 'fa fa-eye'"></i>
               </button>
             </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-neutral mb-1 flex items-center justify-between">
+              <span>模型选择</span>
+              <button 
+                type="button"
+                class="text-xs text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="loadModels"
+                :disabled="loadingModels || !aiConfig.apiKey"
+              >
+                <i v-if="!loadingModels" class="fa fa-refresh mr-1"></i>
+                <i v-else class="fa fa-spinner fa-spin mr-1"></i>
+                {{ loadingModels ? '加载中...' : '刷新模型列表' }}
+              </button>
+            </label>
+            <select 
+              v-model="aiConfig.model"
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg input-focus transition"
+            >
+              <option value="" disabled>请选择模型</option>
+              <option 
+                v-for="model in aiConfig.availableModels" 
+                :key="model" 
+                :value="model"
+              >
+                {{ model }}
+              </option>
+            </select>
+            <p class="mt-1 text-xs text-gray-500">
+              当前有 {{ aiConfig.availableModels?.length || 0 }} 个可用模型
+            </p>
           </div>
           
           <div class="bg-blue-50 p-3 rounded-lg text-sm">
@@ -928,8 +961,8 @@
           <button 
             type="button"
             class="w-full py-2 border-2 border-secondary text-secondary hover:bg-secondary hover:text-white rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-            @click="testAIConnection"
-            :disabled="testingConnection"
+            @click="testConnection"
+            :disabled="testingConnection || !aiConfig.url || !aiConfig.apiKey || !aiConfig.model"
           >
             <i v-if="!testingConnection" class="fa fa-plug mr-2"></i>
             <i v-else class="fa fa-spinner fa-spin mr-2"></i>
@@ -962,7 +995,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useMessage } from 'naive-ui'
 import type { StructuredInput, Template, GeneratedResult, InputMode, AIConfig } from '../types'
-import { optimizePromptWithGemini, GeminiError } from '../services/gemini'
+import { optimizePromptWithGemini, GeminiError, setAPIConfig, getAvailableModels, getPresetModels, testAPIConnection } from '../services/gemini'
 import { saveTemplates, loadTemplates, exportAllData, importData, saveAIConfig as saveAIConfigToStorage, loadAIConfig as loadAIConfigFromStorage, type ImportResult } from '../services/storage'
 
 const message = useMessage()
@@ -1073,9 +1106,11 @@ const aiModalAnimating = ref(false)
 const showApiKey = ref(false)
 const testingConnection = ref(false)
 const aiConfig = ref<AIConfig>({
-  name: '',
-  url: '',
-  apiKey: ''
+  name: 'Gemini 2.5',
+  url: 'https://api.go-model.com/v1',
+  apiKey: '',
+  model: 'gemini-2.5-flash',
+  availableModels: []
 })
 
 // 复制状态
@@ -1235,7 +1270,7 @@ const generatePrompts = async () => {
       let content = ''
       
       try {
-        // 使用 Gemini 优化提示词
+        // 使用 Gemini 优化提示词（自动使用运行时配置）
         content = await optimizePromptWithGemini({
           template,
           inputMode: inputMode.value,
@@ -1527,6 +1562,75 @@ const testAIConnection = async () => {
 }
 
 // 保存AI配置
+// 加载可用模型列表
+const loadingModels = ref(false)
+const loadModels = async () => {
+  if (!aiConfig.value.apiKey.trim()) {
+    message.warning('请先填写 API Key')
+    return
+  }
+  
+  loadingModels.value = true
+  try {
+    const models = await getAvailableModels(aiConfig.value.apiKey, aiConfig.value.url)
+    aiConfig.value.availableModels = models
+    message.success(`获取到 ${models.length} 个可用模型`)
+  } catch (error) {
+    console.error('获取模型列表失败:', error)
+    // 使用预设模型列表
+    aiConfig.value.availableModels = getPresetModels()
+    message.warning('获取模型列表失败，使用预设列表')
+  } finally {
+    loadingModels.value = false
+  }
+}
+
+// 测试 API 连接
+const testConnection = async () => {
+  if (!aiConfig.value.url.trim()) {
+    message.warning('请填写 API URL')
+    return
+  }
+  
+  if (!aiConfig.value.apiKey.trim()) {
+    message.warning('请填写 API Key')
+    return
+  }
+  
+  if (!aiConfig.value.model.trim()) {
+    message.warning('请选择模型')
+    return
+  }
+  
+  testingConnection.value = true
+  try {
+    const result = await testAPIConnection(
+      aiConfig.value.apiKey,
+      aiConfig.value.url,
+      aiConfig.value.model
+    )
+    
+    if (result.success) {
+      message.success(result.message)
+      // 更新可用模型列表
+      if (result.models && result.models.length > 0) {
+        aiConfig.value.availableModels = result.models
+      }
+    } else {
+      message.error(result.message)
+      // 如果测试失败但返回了模型列表，也更新一下
+      if (result.models && result.models.length > 0) {
+        aiConfig.value.availableModels = result.models
+      }
+    }
+  } catch (error) {
+    console.error('测试连接失败:', error)
+    message.error('测试连接失败：' + (error instanceof Error ? error.message : String(error)))
+  } finally {
+    testingConnection.value = false
+  }
+}
+
 const saveAIConfig = () => {
   if (!aiConfig.value.name.trim()) {
     message.warning('请填写AI名称')
@@ -1543,9 +1647,18 @@ const saveAIConfig = () => {
     return
   }
   
+  if (!aiConfig.value.model.trim()) {
+    message.warning('请选择模型')
+    return
+  }
+  
   try {
     // 使用统一的存储函数保存AI配置
     saveAIConfigToStorage(aiConfig.value)
+    
+    // 设置运行时 API 配置
+    setAPIConfig(aiConfig.value.apiKey, aiConfig.value.url, aiConfig.value.model)
+    
     message.success('AI配置保存成功！')
     closeAIConfigModal()
   } catch (error) {
@@ -1722,7 +1835,7 @@ const deleteTemplate = (template: Template) => {
 }
 
 // 加载配置
-onMounted(() => {
+onMounted(async () => {
   // 加载用户创建的模板
   try {
     const userTemplates = loadTemplates()
@@ -1739,10 +1852,26 @@ onMounted(() => {
   try {
     const savedAIConfig = loadAIConfigFromStorage()
     if (savedAIConfig) {
-      aiConfig.value = savedAIConfig
+      // 合并配置，确保有默认值
+      aiConfig.value = {
+        name: savedAIConfig.name || 'Gemini 2.5',
+        url: savedAIConfig.url || 'https://api.go-model.com/v1',
+        apiKey: savedAIConfig.apiKey || '',
+        model: savedAIConfig.model || 'gemini-2.5-flash',
+        availableModels: savedAIConfig.availableModels || getPresetModels()
+      }
+      
+      // 设置运行时 API 配置
+      if (aiConfig.value.apiKey) {
+        setAPIConfig(aiConfig.value.apiKey, aiConfig.value.url, aiConfig.value.model)
+      }
+    } else {
+      // 没有保存的配置，使用预设模型列表
+      aiConfig.value.availableModels = getPresetModels()
     }
   } catch (err) {
     console.error('加载AI配置失败:', err)
+    aiConfig.value.availableModels = getPresetModels()
   }
 })
 </script>

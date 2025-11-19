@@ -3,7 +3,7 @@
  * 用于持久化保存用户创建的模板和配置
  */
 
-import type { Template } from '../types'
+import type { Template, AIConfig } from '../types'
 
 export const STORAGE_KEYS = {
   TEMPLATES: 'prompt_master_templates',
@@ -76,19 +76,19 @@ export function loadAppConfig(): any {
 /**
  * 保存AI配置
  */
-export function saveAIConfig(config: any): void {
+export function saveAIConfig(config: AIConfig): void {
   try {
     localStorage.setItem(STORAGE_KEYS.AI_CONFIG, JSON.stringify(config))
   } catch (error) {
     console.error('保存AI配置失败:', error)
-    throw new Error('保存AI配置失败')
+    throw new Error('保存AI配置失败，可能是存储空间不足')
   }
 }
 
 /**
  * 加载AI配置
  */
-export function loadAIConfig(): any {
+export function loadAIConfig(): AIConfig | null {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.AI_CONFIG)
     if (!data) {
@@ -103,7 +103,7 @@ export function loadAIConfig(): any {
       }
       return null
     }
-    return JSON.parse(data)
+    return JSON.parse(data) as AIConfig
   } catch (error) {
     console.error('加载AI配置失败:', error)
     return null
